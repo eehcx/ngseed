@@ -22,11 +22,34 @@ impl Default for ConsoleProgressReporter {
 
 impl ProgressReporter for ConsoleProgressReporter {
     fn show_banner(&self) {
-        println!("{}", style(" _   _  ____ ____  _____ _____ ____  ").cyan().bold());
-        println!("{}", style("| \\ | |/ ___/ ___|| ____| ____|  _ \\ ").cyan().bold());
-        println!("{}", style("|  \\| | |  _\\___ \\|  _| |  _| | | | |").cyan().bold());
-        println!("{}", style("| |\\  | |_| |___) | |___| |___| |_| |").cyan().bold());
-        println!("{}", style("|_| \\_|\\____|____/|_____|_____|____/ ").cyan().bold());
+        println!(
+            "{}",
+            style(" _   _  ____ ____  _____ _____ ____  ").cyan().bold()
+        );
+        println!(
+            "{}",
+            style("| \\ | |/ ___/ ___|| ____| ____|  _ \\ ")
+                .cyan()
+                .bold()
+        );
+        println!(
+            "{}",
+            style("|  \\| | |  _\\___ \\|  _| |  _| | | | |")
+                .cyan()
+                .bold()
+        );
+        println!(
+            "{}",
+            style("| |\\  | |_| |___) | |___| |___| |_| |")
+                .cyan()
+                .bold()
+        );
+        println!(
+            "{}",
+            style("|_| \\_|\\____|____/|_____|_____|____/ ")
+                .cyan()
+                .bold()
+        );
         println!("{}", style("Angular project bootstrap CLI").dim());
         println!();
     }
