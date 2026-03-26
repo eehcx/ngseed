@@ -5,6 +5,7 @@ use crate::domain::project::ArchitectureProfile;
 use crate::domain::project::NewProjectRequest;
 use crate::domain::project::PackageManager;
 use crate::domain::project::UiChoice;
+use crate::domain::styles_choice::StylesChoice;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -33,6 +34,9 @@ struct NewCommand {
     ui: Option<CliUiChoice>,
 
     #[arg(long, value_enum)]
+    styles: Option<CliStylesChoice>,
+
+    #[arg(long, value_enum)]
     package_manager: Option<CliPackageManager>,
 
     #[arg(long, value_enum)]
@@ -49,6 +53,12 @@ struct NewCommand {
 enum CliUiChoice {
     Material,
     Primeng,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+enum CliStylesChoice {
+    Tailwindcss,
     None,
 }
 
@@ -88,6 +98,7 @@ fn map_cli_to_command(cli: Cli) -> AppCommand {
         Commands::New(cmd) => AppCommand::New(NewProjectRequest {
             project_name: cmd.project_name,
             ui: cmd.ui.map(Into::into),
+            styles: cmd.styles.map(Into::into),
             package_manager: cmd.package_manager.map(Into::into),
             architecture: cmd.architecture.map(Into::into),
             skip_install: cmd.skip_install,
@@ -102,6 +113,15 @@ impl From<CliUiChoice> for UiChoice {
             CliUiChoice::Material => UiChoice::Material,
             CliUiChoice::Primeng => UiChoice::Primeng,
             CliUiChoice::None => UiChoice::None,
+        }
+    }
+}
+
+impl From<CliStylesChoice> for StylesChoice {
+    fn from(value: CliStylesChoice) -> Self {
+        match value {
+            CliStylesChoice::Tailwindcss => StylesChoice::TailwindCSS,
+            CliStylesChoice::None => StylesChoice::None,
         }
     }
 }
