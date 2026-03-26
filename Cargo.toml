@@ -1,6 +1,6 @@
 [package]
 name = "ngseed"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Angular project initializer with clean architecture scaffolding and optional UI integrations"
 license = "GPL-3.0"
