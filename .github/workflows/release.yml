@@ -127,7 +127,8 @@ jobs:
           set -euo pipefail
           CARGO_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
           TAG="${{ needs.release_please.outputs.tag_name }}"
-          if [[ "v${CARGO_VERSION}" != "${TAG}" ]]; then
+          TAG_VERSION="${TAG##*-v}"
+          if [[ "${TAG_VERSION}" != "${CARGO_VERSION}" ]]; then
             echo "Version mismatch: Cargo.toml=${CARGO_VERSION} tag=${TAG}"
             exit 1
           fi
