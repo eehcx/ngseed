@@ -1,6 +1,6 @@
 # ngseed
 
-`ngseed` is a Rust-powered CLI to scaffold production-ready Angular apps. Get a layered Clean Architecture baseline with optional UI integrations in seconds.
+`ngseed` is a Rust-powered CLI to scaffold production-ready Angular apps. Generate a Clean or CDP (Core-Data-Presentation) architecture baseline with optional UI integrations in seconds.
 
 ## Features
 
@@ -10,7 +10,10 @@
   - SCSS styles
   - SSR disabled
   - npm package manager
-- Applies a Clean Architecture starter structure:
+- Supports architecture profiles:
+  - `clean`: domain/application/infrastructure/presentation
+  - `cdp`: core/data/presentation
+- Clean profile starter structure:
   - `domain`
   - `application`
   - `infrastructure`
@@ -29,13 +32,14 @@ ngseed new my-app
 Non-interactive mode:
 
 ```bash
-ngseed new my-app --yes --ui material --package-manager pnpm
+ngseed new my-app --yes --architecture cdp --ui material --package-manager pnpm
 ```
 
 Flags:
 
 - `--ui <material|primeng|none>`
 - `--package-manager <npm|pnpm|yarn|bun>`
+- `--architecture <clean|cdp>`
 - `--skip-install`
 - `--yes`
 

@@ -4,7 +4,9 @@ use crate::application::ports::Environment;
 use crate::application::ports::ProgressReporter;
 use crate::application::ports::Seeder;
 use crate::application::ports::UiSelector;
+use crate::domain::project::ArchitectureProfile;
 use crate::domain::project::NewProjectRequest;
+use crate::domain::project::PackageManager;
 use crate::domain::project::ResolvedOptions;
 use crate::domain::project::UiChoice;
 
@@ -34,9 +36,14 @@ impl<'a> NewProjectUseCase<'a> {
         let options = self.resolve_options(
             request.ui,
             request.package_manager,
+            request.architecture,
             request.skip_install,
             request.yes,
         )?;
+
+        if !request.yes && !self.env.is_ci() && self.env.is_interactive_terminal() {
+            self.reporter.show_banner();
+        }
 
         self.reporter
             .stage_start("preflight", "checking required tools");
@@ -71,17 +78,17 @@ impl<'a> NewProjectUseCase<'a> {
         let absolute_project_dir = self.env.current_dir()?.join(&request.project_name);
 
         self.reporter
-            .stage_start("template", "applying clean architecture template");
+            .stage_start("template", "applying architecture template");
         if let Err(err) = self
             .seeder
-            .apply_clean_architecture_template(&absolute_project_dir)
+            .apply_architecture_template(&absolute_project_dir, options.architecture)
         {
             self.reporter
-                .stage_error("template", "clean template setup failed");
+                .stage_error("template", "template setup failed");
             return Err(err);
         }
         self.reporter
-            .stage_ok("template", "clean architecture template applied");
+            .stage_ok("template", "architecture template applied");
 
         self.reporter
             .stage_start("ui setup", "applying selected UI integration");
@@ -106,22 +113,32 @@ impl<'a> NewProjectUseCase<'a> {
     fn resolve_options(
         &self,
         cli_ui: Option<UiChoice>,
-        cli_package_manager: Option<crate::domain::project::PackageManager>,
+        cli_package_manager: Option<PackageManager>,
+        cli_architecture: Option<ArchitectureProfile>,
         skip_install: bool,
         yes: bool,
     ) -> Result<ResolvedOptions> {
         let package_manager = if let Some(value) = cli_package_manager {
             value
         } else if yes {
-            crate::domain::project::PackageManager::Npm
+            PackageManager::Npm
         } else {
             self.ui_selector.select_package_manager()?
+        };
+
+        let architecture = if let Some(value) = cli_architecture {
+            value
+        } else if yes {
+            ArchitectureProfile::Clean
+        } else {
+            self.ui_selector.select_architecture()?
         };
 
         if yes {
             return Ok(ResolvedOptions {
                 ui: cli_ui.unwrap_or(UiChoice::None),
                 package_manager,
+                architecture,
                 skip_install,
             });
         }
@@ -135,6 +152,7 @@ impl<'a> NewProjectUseCase<'a> {
         Ok(ResolvedOptions {
             ui,
             package_manager,
+            architecture,
             skip_install,
         })
     }
@@ -166,6 +184,10 @@ mod tests {
         fn select_package_manager(&self) -> Result<PackageManager> {
             Ok(PackageManager::Npm)
         }
+
+        fn select_architecture(&self) -> Result<ArchitectureProfile> {
+            Ok(ArchitectureProfile::Clean)
+        }
     }
 
     struct FakeEnvironment {
@@ -180,6 +202,14 @@ mod tests {
 
         fn current_dir(&self) -> Result<PathBuf> {
             Ok(self.cwd.clone())
+        }
+
+        fn is_ci(&self) -> bool {
+            false
+        }
+
+        fn is_interactive_terminal(&self) -> bool {
+            true
         }
     }
 
@@ -207,10 +237,14 @@ mod tests {
             Ok(())
         }
 
-        fn apply_clean_architecture_template(&self, _project_dir: &Path) -> Result<()> {
+        fn apply_architecture_template(
+            &self,
+            _project_dir: &Path,
+            _architecture: ArchitectureProfile,
+        ) -> Result<()> {
             self.calls
                 .borrow_mut()
-                .push("apply_clean_architecture_template".to_string());
+                .push("apply_architecture_template".to_string());
             Ok(())
         }
 
@@ -231,6 +265,7 @@ mod tests {
     struct FakeReporter;
 
     impl ProgressReporter for FakeReporter {
+        fn show_banner(&self) {}
         fn stage_start(&self, _stage: &str, _message: &str) {}
         fn stage_ok(&self, _stage: &str, _message: &str) {}
         fn stage_error(&self, _stage: &str, _message: &str) {}
@@ -253,6 +288,7 @@ mod tests {
                 project_name: "demo-app".to_string(),
                 ui: None,
                 package_manager: Some(PackageManager::Npm),
+                architecture: Some(ArchitectureProfile::Clean),
                 skip_install: true,
                 yes: true,
             })
@@ -263,7 +299,7 @@ mod tests {
             vec![
                 "ensure_required_tools",
                 "scaffold_angular_project",
-                "apply_clean_architecture_template",
+                "apply_architecture_template",
                 "apply_ui_integration"
             ]
         );

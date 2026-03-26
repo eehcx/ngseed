@@ -6,7 +6,7 @@ use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::application::ports::ProgressReporter;
-use crate::domain::project::{PackageManager, ResolvedOptions, UiChoice};
+use crate::domain::project::{ArchitectureProfile, PackageManager, ResolvedOptions, UiChoice};
 
 pub struct ConsoleProgressReporter {
     spinner: Mutex<Option<ProgressBar>>,
@@ -21,6 +21,16 @@ impl Default for ConsoleProgressReporter {
 }
 
 impl ProgressReporter for ConsoleProgressReporter {
+    fn show_banner(&self) {
+        println!("{}", style(" _   _  ____ ____  _____ _____ ____  ").cyan().bold());
+        println!("{}", style("| \\ | |/ ___/ ___|| ____| ____|  _ \\ ").cyan().bold());
+        println!("{}", style("|  \\| | |  _\\___ \\|  _| |  _| | | | |").cyan().bold());
+        println!("{}", style("| |\\  | |_| |___) | |___| |___| |_| |").cyan().bold());
+        println!("{}", style("|_| \\_|\\____|____/|_____|_____|____/ ").cyan().bold());
+        println!("{}", style("Angular project bootstrap CLI").dim());
+        println!();
+    }
+
     fn stage_start(&self, stage: &str, message: &str) {
         let spinner = ProgressBar::new_spinner();
         spinner.set_style(
@@ -91,6 +101,11 @@ impl ProgressReporter for ConsoleProgressReporter {
         );
         println!(
             "{} {}",
+            style("architecture:").bold(),
+            style(architecture_label(options.architecture)).yellow()
+        );
+        println!(
+            "{} {}",
             style("skip install:").bold(),
             style(if options.skip_install { "yes" } else { "no" }).yellow()
         );
@@ -115,5 +130,12 @@ fn package_manager_label(pm: PackageManager) -> &'static str {
         PackageManager::Pnpm => "pnpm",
         PackageManager::Yarn => "yarn",
         PackageManager::Bun => "bun",
+    }
+}
+
+fn architecture_label(profile: ArchitectureProfile) -> &'static str {
+    match profile {
+        ArchitectureProfile::Clean => "clean",
+        ArchitectureProfile::Cdp => "cdp",
     }
 }
