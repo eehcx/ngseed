@@ -1,8 +1,10 @@
+#![allow(dead_code)]
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use minijinja::Environment;
 use serde_json::Value;
 
@@ -348,7 +350,9 @@ export const routes: Routes = [
 }
 
 fn patch_app_component_for_clean(app_dir: &Path) -> Result<()> {
-    let (app_ts, app_html, template_url, style_property, component_class) =
+    let loader = TemplateLoader::new()?;
+
+    let (app_ts, app_html, template_url, style_url, component_class) =
         if app_dir.join("app.ts").exists() {
             (
                 app_dir.join("app.ts"),
@@ -428,6 +432,7 @@ export class __COMPONENT_CLASS__ {}
 }
 
 fn patch_app_config_for_clean(app_dir: &Path) -> Result<()> {
+    let loader = TemplateLoader::new()?;
     let app_config = app_dir.join("app.config.ts");
 
     write_file(&app_config, &loader.render("app.config.ts.j2", ())?)
@@ -728,15 +733,21 @@ mod tests {
 
         apply_clean_architecture_template(&tmp.path().join("demo")).unwrap();
 
-        assert!(app_dir
-            .join("domain/ports/greeting-repository.port.ts")
-            .exists());
-        assert!(app_dir
-            .join("application/use-cases/get-greeting.use-case.ts")
-            .exists());
-        assert!(app_dir
-            .join("infrastructure/providers/greeting.provider.ts")
-            .exists());
+        assert!(
+            app_dir
+                .join("domain/ports/greeting-repository.port.ts")
+                .exists()
+        );
+        assert!(
+            app_dir
+                .join("application/use-cases/get-greeting.use-case.ts")
+                .exists()
+        );
+        assert!(
+            app_dir
+                .join("infrastructure/providers/greeting.provider.ts")
+                .exists()
+        );
         assert!(app_dir.join("presentation/facades/home.facade.ts").exists());
     }
 

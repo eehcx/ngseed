@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 use crate::application::ports::Environment;
 use crate::application::ports::ProgressReporter;
@@ -37,6 +37,7 @@ impl<'a> NewProjectUseCase<'a> {
         let options = self.resolve_options(
             request.ui,
             request.package_manager,
+            request.styles,
             request.architecture,
             request.skip_install,
             request.yes,
@@ -128,6 +129,7 @@ impl<'a> NewProjectUseCase<'a> {
         &self,
         cli_ui: Option<UiChoice>,
         cli_package_manager: Option<PackageManager>,
+        cli_styles: Option<StylesChoice>,
         cli_architecture: Option<ArchitectureProfile>,
         skip_install: bool,
         yes: bool,

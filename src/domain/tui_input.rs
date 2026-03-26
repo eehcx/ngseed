@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::domain::project::PackageManager;
 use crate::domain::project::UiChoice;
 
