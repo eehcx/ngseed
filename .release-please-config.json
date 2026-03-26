@@ -1,0 +1,10 @@
+{
+  "release-type": "rust",
+  "packages": {
+    ".": {
+      "package-name": "ngseed",
+      "release-type": "rust",
+      "include-v-in-tag": true
+    }
+  }
+}

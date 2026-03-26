@@ -1,0 +1,268 @@
+use anyhow::{Result, bail};
+
+use crate::application::ports::Environment;
+use crate::application::ports::ProgressReporter;
+use crate::application::ports::Seeder;
+use crate::application::ports::UiSelector;
+use crate::domain::project::NewProjectRequest;
+use crate::domain::project::ResolvedOptions;
+use crate::domain::project::UiChoice;
+
+pub struct NewProjectUseCase<'a> {
+    env: &'a dyn Environment,
+    ui_selector: &'a dyn UiSelector,
+    seeder: &'a dyn Seeder,
+    reporter: &'a dyn ProgressReporter,
+}
+
+impl<'a> NewProjectUseCase<'a> {
+    pub fn new(
+        env: &'a dyn Environment,
+        ui_selector: &'a dyn UiSelector,
+        seeder: &'a dyn Seeder,
+        reporter: &'a dyn ProgressReporter,
+    ) -> Self {
+        Self {
+            env,
+            ui_selector,
+            seeder,
+            reporter,
+        }
+    }
+
+    pub fn execute(&self, request: NewProjectRequest) -> Result<()> {
+        let options = self.resolve_options(
+            request.ui,
+            request.package_manager,
+            request.skip_install,
+            request.yes,
+        )?;
+
+        self.reporter
+            .stage_start("preflight", "checking required tools");
+        if let Err(err) = self.seeder.ensure_required_tools(options.package_manager) {
+            self.reporter.stage_error("preflight", "required tool check failed");
+            return Err(err);
+        }
+        self.reporter
+            .stage_ok("preflight", "required tools look good");
+
+        if self.env.project_exists(&request.project_name) {
+            bail!(
+                "project directory `{}` already exists. Choose a different project name.",
+                request.project_name
+            );
+        }
+
+        self.reporter
+            .stage_start("scaffold", "creating Angular project");
+        if let Err(err) = self
+            .seeder
+            .scaffold_angular_project(&request.project_name, options)
+        {
+            self.reporter
+                .stage_error("scaffold", "Angular scaffolding failed");
+            return Err(err);
+        }
+        self.reporter
+            .stage_ok("scaffold", "Angular project created");
+
+        let absolute_project_dir = self.env.current_dir()?.join(&request.project_name);
+
+        self.reporter
+            .stage_start("template", "applying clean architecture template");
+        if let Err(err) = self
+            .seeder
+            .apply_clean_architecture_template(&absolute_project_dir)
+        {
+            self.reporter
+                .stage_error("template", "clean template setup failed");
+            return Err(err);
+        }
+        self.reporter
+            .stage_ok("template", "clean architecture template applied");
+
+        self.reporter
+            .stage_start("ui setup", "applying selected UI integration");
+        if let Err(err) = self
+            .seeder
+            .apply_ui_integration(&absolute_project_dir, options.ui, options.package_manager)
+        {
+            self.reporter
+                .stage_error("ui setup", "UI integration failed");
+            return Err(err);
+        }
+        self.reporter
+            .stage_ok("ui setup", "UI integration completed");
+
+        self.reporter.summary(
+            &request.project_name,
+            &absolute_project_dir,
+            options,
+        );
+
+        Ok(())
+    }
+
+    fn resolve_options(
+        &self,
+        cli_ui: Option<UiChoice>,
+        cli_package_manager: Option<crate::domain::project::PackageManager>,
+        skip_install: bool,
+        yes: bool,
+    ) -> Result<ResolvedOptions> {
+        let package_manager = if let Some(value) = cli_package_manager {
+            value
+        } else if yes {
+            crate::domain::project::PackageManager::Npm
+        } else {
+            self.ui_selector.select_package_manager()?
+        };
+
+        if yes {
+            return Ok(ResolvedOptions {
+                ui: cli_ui.unwrap_or(UiChoice::None),
+                package_manager,
+                skip_install,
+            });
+        }
+
+        let ui = if let Some(value) = cli_ui {
+            value
+        } else {
+            self.ui_selector.select_ui()?
+        };
+
+        Ok(ResolvedOptions {
+            ui,
+            package_manager,
+            skip_install,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::application::ports::Environment;
+    use crate::application::ports::ProgressReporter;
+    use crate::application::ports::Seeder;
+    use crate::application::ports::UiSelector;
+    use crate::domain::project::NewProjectRequest;
+    use crate::domain::project::PackageManager;
+
+    struct FakeUiSelector {
+        ui: UiChoice,
+    }
+
+    impl UiSelector for FakeUiSelector {
+        fn select_ui(&self) -> Result<UiChoice> {
+            Ok(self.ui)
+        }
+
+        fn select_package_manager(&self) -> Result<PackageManager> {
+            Ok(PackageManager::Npm)
+        }
+    }
+
+    struct FakeEnvironment {
+        exists: bool,
+        cwd: PathBuf,
+    }
+
+    impl Environment for FakeEnvironment {
+        fn project_exists(&self, _project_name: &str) -> bool {
+            self.exists
+        }
+
+        fn current_dir(&self) -> Result<PathBuf> {
+            Ok(self.cwd.clone())
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeSeeder {
+        calls: RefCell<Vec<String>>,
+    }
+
+    impl Seeder for FakeSeeder {
+        fn ensure_required_tools(&self, _package_manager: PackageManager) -> Result<()> {
+            self.calls
+                .borrow_mut()
+                .push("ensure_required_tools".to_string());
+            Ok(())
+        }
+
+        fn scaffold_angular_project(&self, _project_name: &str, _options: ResolvedOptions) -> Result<()> {
+            self.calls
+                .borrow_mut()
+                .push("scaffold_angular_project".to_string());
+            Ok(())
+        }
+
+        fn apply_clean_architecture_template(&self, _project_dir: &Path) -> Result<()> {
+            self.calls
+                .borrow_mut()
+                .push("apply_clean_architecture_template".to_string());
+            Ok(())
+        }
+
+        fn apply_ui_integration(
+            &self,
+            _project_dir: &Path,
+            _ui: UiChoice,
+            _package_manager: PackageManager,
+        ) -> Result<()> {
+            self.calls
+                .borrow_mut()
+                .push("apply_ui_integration".to_string());
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeReporter;
+
+    impl ProgressReporter for FakeReporter {
+        fn stage_start(&self, _stage: &str, _message: &str) {}
+        fn stage_ok(&self, _stage: &str, _message: &str) {}
+        fn stage_error(&self, _stage: &str, _message: &str) {}
+        fn summary(&self, _project_name: &str, _project_dir: &Path, _options: ResolvedOptions) {}
+    }
+
+    #[test]
+    fn execute_runs_expected_flow() {
+        let env = FakeEnvironment {
+            exists: false,
+            cwd: PathBuf::from("/tmp"),
+        };
+        let ui_selector = FakeUiSelector { ui: UiChoice::None };
+        let seeder = FakeSeeder::default();
+        let reporter = FakeReporter;
+        let use_case = NewProjectUseCase::new(&env, &ui_selector, &seeder, &reporter);
+
+        use_case
+            .execute(NewProjectRequest {
+                project_name: "demo-app".to_string(),
+                ui: None,
+                package_manager: Some(PackageManager::Npm),
+                skip_install: true,
+                yes: true,
+            })
+            .unwrap();
+
+        assert_eq!(
+            seeder.calls.borrow().clone(),
+            vec![
+                "ensure_required_tools",
+                "scaffold_angular_project",
+                "apply_clean_architecture_template",
+                "apply_ui_integration"
+            ]
+        );
+    }
+}

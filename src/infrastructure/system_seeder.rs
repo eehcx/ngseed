@@ -1,0 +1,542 @@
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
+use anyhow::{Context, Result, bail};
+use serde_json::Value;
+
+use crate::application::ports::Seeder;
+use crate::domain::project::PackageManager;
+use crate::domain::project::ResolvedOptions;
+use crate::domain::project::UiChoice;
+
+pub trait CommandRunner {
+    fn run(&mut self, program: &str, args: &[String], cwd: Option<&Path>) -> Result<()>;
+}
+
+pub struct SystemCommandRunner;
+
+impl CommandRunner for SystemCommandRunner {
+    fn run(&mut self, program: &str, args: &[String], cwd: Option<&Path>) -> Result<()> {
+        let mut cmd = Command::new(program);
+        cmd.args(args);
+        if let Some(path) = cwd {
+            cmd.current_dir(path);
+        }
+
+        let status = cmd.status().with_context(|| {
+            format!(
+                "failed to start command `{}`",
+                format_command(program, args)
+            )
+        })?;
+
+        if !status.success() {
+            bail!("command failed: {}", format_command(program, args));
+        }
+
+        Ok(())
+    }
+}
+
+pub struct SystemSeeder;
+
+impl Default for SystemSeeder {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl Seeder for SystemSeeder {
+    fn ensure_required_tools(&self, package_manager: PackageManager) -> Result<()> {
+        let mut runner = SystemCommandRunner;
+        ensure_required_tools(&mut runner, package_manager)
+    }
+
+    fn scaffold_angular_project(&self, project_name: &str, options: ResolvedOptions) -> Result<()> {
+        let mut runner = SystemCommandRunner;
+        scaffold_angular_project(&mut runner, project_name, options)
+    }
+
+    fn apply_clean_architecture_template(&self, project_dir: &Path) -> Result<()> {
+        apply_clean_architecture_template(project_dir)
+    }
+
+    fn apply_ui_integration(
+        &self,
+        project_dir: &Path,
+        ui: UiChoice,
+        package_manager: PackageManager,
+    ) -> Result<()> {
+        let mut runner = SystemCommandRunner;
+        apply_ui_integration(&mut runner, project_dir, ui, package_manager)
+    }
+}
+
+fn ensure_required_tools(runner: &mut dyn CommandRunner, package_manager: PackageManager) -> Result<()> {
+    for tool in ["node", "ng", package_manager_cli_name(package_manager)] {
+        let args = vec!["--version".to_string()];
+        runner
+            .run(tool, &args, None)
+            .with_context(|| format!("`{tool}` is required. Install it and retry."))?;
+    }
+
+    Ok(())
+}
+
+fn scaffold_angular_project(
+    runner: &mut dyn CommandRunner,
+    project_name: &str,
+    options: ResolvedOptions,
+) -> Result<()> {
+    let package_manager = package_manager_cli_name(options.package_manager);
+
+    let mut args = vec![
+        "new".to_string(),
+        project_name.to_string(),
+        "--defaults".to_string(),
+        "--standalone".to_string(),
+        "--routing".to_string(),
+        "--style=scss".to_string(),
+        "--ssr=false".to_string(),
+        format!("--package-manager={package_manager}"),
+    ];
+
+    if options.skip_install {
+        args.push("--skip-install".to_string());
+    }
+
+    runner.run("ng", &args, None)
+}
+
+fn apply_clean_architecture_template(project_dir: &Path) -> Result<()> {
+    let app_dir = project_dir.join("src/app");
+    if !app_dir.exists() {
+        bail!(
+            "could not find Angular app directory at `{}`",
+            app_dir.display()
+        );
+    }
+
+    write_file(
+        &app_dir.join("domain/entities/greeting.entity.ts"),
+        r#"export interface Greeting {
+  value: string;
+}
+"#,
+    )?;
+
+    write_file(
+        &app_dir.join("domain/ports/greeting-repository.port.ts"),
+        r#"import { InjectionToken } from '@angular/core';
+import { Greeting } from '../entities/greeting.entity';
+
+export interface GreetingRepository {
+  getGreeting(): Greeting;
+}
+
+export const GREETING_REPOSITORY = new InjectionToken<GreetingRepository>('GREETING_REPOSITORY');
+"#,
+    )?;
+
+    write_file(
+        &app_dir.join("application/use-cases/get-greeting.use-case.ts"),
+        r#"import { Inject, Injectable } from '@angular/core';
+import {
+  GREETING_REPOSITORY,
+  GreetingRepository,
+} from '../../domain/ports/greeting-repository.port';
+
+@Injectable({ providedIn: 'root' })
+export class GetGreetingUseCase {
+  constructor(
+    @Inject(GREETING_REPOSITORY)
+    private readonly greetingRepository: GreetingRepository,
+  ) {}
+
+  execute(): string {
+    return this.greetingRepository.getGreeting().value;
+  }
+}
+"#,
+    )?;
+
+    write_file(
+        &app_dir.join("infrastructure/adapters/static-greeting.repository.ts"),
+        r#"import { Injectable } from '@angular/core';
+import { Greeting } from '../../domain/entities/greeting.entity';
+import { GreetingRepository } from '../../domain/ports/greeting-repository.port';
+
+@Injectable()
+export class StaticGreetingRepository implements GreetingRepository {
+  getGreeting(): Greeting {
+    return { value: 'Angular project seeded with Clean Architecture' };
+  }
+}
+"#,
+    )?;
+
+    write_file(
+        &app_dir.join("infrastructure/providers/greeting.provider.ts"),
+        r#"import { Provider } from '@angular/core';
+import { GREETING_REPOSITORY } from '../../domain/ports/greeting-repository.port';
+import { StaticGreetingRepository } from '../adapters/static-greeting.repository';
+
+export function provideGreetingRepository(): Provider[] {
+  return [
+    StaticGreetingRepository,
+    {
+      provide: GREETING_REPOSITORY,
+      useExisting: StaticGreetingRepository,
+    },
+  ];
+}
+"#,
+    )?;
+
+    write_file(
+        &app_dir.join("presentation/facades/home.facade.ts"),
+        r#"import { Injectable, inject } from '@angular/core';
+import { GetGreetingUseCase } from '../../application/use-cases/get-greeting.use-case';
+
+@Injectable({ providedIn: 'root' })
+export class HomeFacade {
+  private readonly getGreetingUseCase = inject(GetGreetingUseCase);
+
+  readonly message = this.getGreetingUseCase.execute();
+}
+"#,
+    )?;
+
+    patch_app_component(&app_dir)?;
+    patch_app_config(&app_dir)?;
+
+    Ok(())
+}
+
+fn patch_app_component(app_dir: &Path) -> Result<()> {
+    let (app_ts, app_html, template_url, style_property, component_class) =
+        if app_dir.join("app.ts").exists() {
+            (
+                app_dir.join("app.ts"),
+                app_dir.join("app.html"),
+                "./app.html",
+                "styleUrl",
+                "App",
+            )
+        } else {
+            (
+                app_dir.join("app.component.ts"),
+                app_dir.join("app.component.html"),
+                "./app.component.html",
+                "styleUrls",
+                "AppComponent",
+            )
+        };
+
+    write_file(&app_ts, &{
+        let template = r#"import { Component, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { HomeFacade } from './presentation/facades/home.facade';
+
+@Component({
+  selector: 'app-root',
+  imports: [RouterOutlet],
+  templateUrl: '__TEMPLATE_URL__',
+  __STYLE_PROPERTY__: ['./app.scss'],
+})
+export class __COMPONENT_CLASS__ {
+  private readonly homeFacade = inject(HomeFacade);
+  readonly message = this.homeFacade.message;
+}
+"#;
+        template
+            .replace("__TEMPLATE_URL__", template_url)
+            .replace("__STYLE_PROPERTY__", style_property)
+            .replace("__COMPONENT_CLASS__", component_class)
+    })?;
+
+    write_file(
+        &app_html,
+        r#"<main class="shell">
+  <h1>{{ message }}</h1>
+  <p>Start building features in domain/application/infrastructure/presentation.</p>
+</main>
+<router-outlet />
+"#,
+    )?;
+
+    Ok(())
+}
+
+fn patch_app_config(app_dir: &Path) -> Result<()> {
+    let app_config = app_dir.join("app.config.ts");
+
+    write_file(
+        &app_config,
+        r#"import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
+
+import { routes } from './app.routes';
+import { provideGreetingRepository } from './infrastructure/providers/greeting.provider';
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideRouter(routes), ...provideGreetingRepository()],
+};
+"#,
+    )
+}
+
+fn apply_ui_integration(
+    runner: &mut dyn CommandRunner,
+    project_dir: &Path,
+    ui: UiChoice,
+    package_manager: PackageManager,
+) -> Result<()> {
+    match ui {
+        UiChoice::None => Ok(()),
+        UiChoice::Material => {
+            let args = vec![
+                "add".to_string(),
+                "@angular/material".to_string(),
+                "--defaults".to_string(),
+                "--skip-confirmation".to_string(),
+            ];
+            runner.run("ng", &args, Some(project_dir))
+        }
+        UiChoice::Primeng => {
+            let (program, install_args) = package_manager_install_command(
+                package_manager,
+                &["primeng", "primeicons", "@primeng/themes"],
+            );
+            runner.run(program, &install_args, Some(project_dir))?;
+
+            add_styles_to_angular_json(
+                project_dir,
+                &[
+                    "node_modules/@primeng/themes/aura/theme.css",
+                    "node_modules/primeicons/primeicons.css",
+                ],
+            )
+        }
+    }
+}
+
+fn package_manager_cli_name(package_manager: PackageManager) -> &'static str {
+    match package_manager {
+        PackageManager::Npm => "npm",
+        PackageManager::Pnpm => "pnpm",
+        PackageManager::Yarn => "yarn",
+        PackageManager::Bun => "bun",
+    }
+}
+
+fn package_manager_install_command(
+    package_manager: PackageManager,
+    packages: &[&str],
+) -> (&'static str, Vec<String>) {
+    match package_manager {
+        PackageManager::Npm => {
+            let mut args = vec!["install".to_string()];
+            args.extend(packages.iter().map(|s| s.to_string()));
+            ("npm", args)
+        }
+        PackageManager::Pnpm => {
+            let mut args = vec!["add".to_string()];
+            args.extend(packages.iter().map(|s| s.to_string()));
+            ("pnpm", args)
+        }
+        PackageManager::Yarn => {
+            let mut args = vec!["add".to_string()];
+            args.extend(packages.iter().map(|s| s.to_string()));
+            ("yarn", args)
+        }
+        PackageManager::Bun => {
+            let mut args = vec!["add".to_string()];
+            args.extend(packages.iter().map(|s| s.to_string()));
+            ("bun", args)
+        }
+    }
+}
+
+fn add_styles_to_angular_json(project_dir: &Path, styles: &[&str]) -> Result<()> {
+    let angular_json_path = project_dir.join("angular.json");
+    let raw = fs::read_to_string(&angular_json_path)
+        .with_context(|| format!("failed to read {}", angular_json_path.display()))?;
+
+    let mut json: Value =
+        serde_json::from_str(&raw).context("failed to parse angular.json as JSON")?;
+
+    let projects = json
+        .get_mut("projects")
+        .and_then(Value::as_object_mut)
+        .context("angular.json is missing `projects`")?;
+
+    let Some((_project_name, project_config)) = projects.iter_mut().next() else {
+        bail!("angular.json has no projects entries");
+    };
+
+    let styles_array = project_config
+        .pointer_mut("/architect/build/options/styles")
+        .and_then(Value::as_array_mut)
+        .context("angular.json is missing /architect/build/options/styles")?;
+
+    for style in styles {
+        if !styles_array
+            .iter()
+            .any(|entry| entry.as_str() == Some(style))
+        {
+            styles_array.push(Value::String((*style).to_string()));
+        }
+    }
+
+    let rendered = serde_json::to_string_pretty(&json).context("failed to render angular.json")?;
+    fs::write(&angular_json_path, format!("{rendered}\n"))
+        .with_context(|| format!("failed to write {}", angular_json_path.display()))?;
+
+    Ok(())
+}
+
+fn write_file(path: &Path, content: &str) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create directory {}", parent.display()))?;
+    }
+
+    fs::write(path, content).with_context(|| format!("failed to write {}", path.display()))
+}
+
+fn format_command(program: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        return program.to_string();
+    }
+    format!("{} {}", program, args.join(" "))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct FakeRunner {
+        calls: Vec<(String, Vec<String>, Option<PathBuf>)>,
+    }
+
+    impl CommandRunner for FakeRunner {
+        fn run(&mut self, program: &str, args: &[String], cwd: Option<&Path>) -> Result<()> {
+            self.calls.push((
+                program.to_string(),
+                args.to_vec(),
+                cwd.map(Path::to_path_buf),
+            ));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn scaffold_calls_ng_new_with_expected_flags() {
+        let mut runner = FakeRunner::default();
+
+        scaffold_angular_project(
+            &mut runner,
+            "demo-app",
+            ResolvedOptions {
+                ui: UiChoice::None,
+                package_manager: PackageManager::Pnpm,
+                skip_install: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(runner.calls.len(), 1);
+        let (program, args, _) = &runner.calls[0];
+        assert_eq!(program, "ng");
+        assert!(args.contains(&"new".to_string()));
+        assert!(args.contains(&"demo-app".to_string()));
+        assert!(args.contains(&"--standalone".to_string()));
+        assert!(args.contains(&"--routing".to_string()));
+        assert!(args.contains(&"--style=scss".to_string()));
+        assert!(args.contains(&"--ssr=false".to_string()));
+        assert!(args.contains(&"--package-manager=pnpm".to_string()));
+        assert!(args.contains(&"--skip-install".to_string()));
+    }
+
+    #[test]
+    fn package_manager_install_command_matches_manager() {
+        let (program, args) =
+            package_manager_install_command(PackageManager::Bun, &["primeng"]);
+        assert_eq!(program, "bun");
+        assert_eq!(args, vec!["add".to_string(), "primeng".to_string()]);
+    }
+
+    #[test]
+    fn primeng_adds_expected_styles() {
+        let tmp = tempdir().unwrap();
+        let project_dir = tmp.path();
+        fs::create_dir_all(project_dir.join("src/app")).unwrap();
+        fs::write(
+            project_dir.join("angular.json"),
+            r#"{
+  "projects": {
+    "demo": {
+      "architect": {
+        "build": {
+          "options": {
+            "styles": ["src/styles.scss"]
+          }
+        }
+      }
+    }
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        add_styles_to_angular_json(
+            project_dir,
+            &[
+                "node_modules/@primeng/themes/aura/theme.css",
+                "node_modules/primeicons/primeicons.css",
+            ],
+        )
+        .unwrap();
+
+        let rendered = fs::read_to_string(project_dir.join("angular.json")).unwrap();
+        assert!(rendered.contains("node_modules/@primeng/themes/aura/theme.css"));
+        assert!(rendered.contains("node_modules/primeicons/primeicons.css"));
+    }
+
+    #[test]
+    fn clean_template_creates_layered_files() {
+        let tmp = tempdir().unwrap();
+        let app_dir = tmp.path().join("demo/src/app");
+        fs::create_dir_all(&app_dir).unwrap();
+        fs::write(app_dir.join("app.ts"), "").unwrap();
+        fs::write(app_dir.join("app.html"), "").unwrap();
+        fs::write(app_dir.join("app.config.ts"), "").unwrap();
+
+        apply_clean_architecture_template(&tmp.path().join("demo")).unwrap();
+
+        assert!(
+            app_dir
+                .join("domain/ports/greeting-repository.port.ts")
+                .exists()
+        );
+        assert!(
+            app_dir
+                .join("application/use-cases/get-greeting.use-case.ts")
+                .exists()
+        );
+        assert!(
+            app_dir
+                .join("infrastructure/providers/greeting.provider.ts")
+                .exists()
+        );
+        assert!(app_dir.join("presentation/facades/home.facade.ts").exists());
+    }
+}
