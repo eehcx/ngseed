@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 use crate::application::ports::Environment;
 use crate::application::ports::ProgressReporter;
@@ -7,6 +7,7 @@ use crate::application::ports::UiSelector;
 use crate::domain::project::NewProjectRequest;
 use crate::domain::project::ResolvedOptions;
 use crate::domain::project::UiChoice;
+use crate::domain::styles_choice::StylesChoice;
 
 pub struct NewProjectUseCase<'a> {
     env: &'a dyn Environment,
@@ -34,6 +35,7 @@ impl<'a> NewProjectUseCase<'a> {
         let options = self.resolve_options(
             request.ui,
             request.package_manager,
+            request.styles,
             request.skip_install,
             request.yes,
         )?;
@@ -97,6 +99,19 @@ impl<'a> NewProjectUseCase<'a> {
         self.reporter
             .stage_ok("ui setup", "UI integration completed");
 
+        if options.styles != StylesChoice::None {
+            self.reporter.stage_start("styles", "applying styles setup");
+            if let Err(err) = self.seeder.apply_styles(
+                &absolute_project_dir,
+                options.styles,
+                options.package_manager,
+            ) {
+                self.reporter.stage_error("styles", "styles setup failed");
+                return Err(err);
+            }
+            self.reporter.stage_ok("styles", "styles setup completed");
+        }
+
         self.reporter
             .summary(&request.project_name, &absolute_project_dir, options);
 
@@ -107,6 +122,7 @@ impl<'a> NewProjectUseCase<'a> {
         &self,
         cli_ui: Option<UiChoice>,
         cli_package_manager: Option<crate::domain::project::PackageManager>,
+        cli_styles: Option<StylesChoice>,
         skip_install: bool,
         yes: bool,
     ) -> Result<ResolvedOptions> {
@@ -121,6 +137,7 @@ impl<'a> NewProjectUseCase<'a> {
         if yes {
             return Ok(ResolvedOptions {
                 ui: cli_ui.unwrap_or(UiChoice::None),
+                styles: cli_styles.unwrap_or(StylesChoice::None),
                 package_manager,
                 skip_install,
             });
@@ -132,8 +149,15 @@ impl<'a> NewProjectUseCase<'a> {
             self.ui_selector.select_ui()?
         };
 
+        let styles = if let Some(value) = cli_styles {
+            value
+        } else {
+            self.ui_selector.select_styles()?
+        };
+
         Ok(ResolvedOptions {
             ui,
+            styles,
             package_manager,
             skip_install,
         })
@@ -156,11 +180,16 @@ mod tests {
 
     struct FakeUiSelector {
         ui: UiChoice,
+        styles: StylesChoice,
     }
 
     impl UiSelector for FakeUiSelector {
         fn select_ui(&self) -> Result<UiChoice> {
             Ok(self.ui)
+        }
+
+        fn select_styles(&self) -> Result<StylesChoice> {
+            Ok(self.styles)
         }
 
         fn select_package_manager(&self) -> Result<PackageManager> {
@@ -225,6 +254,16 @@ mod tests {
                 .push("apply_ui_integration".to_string());
             Ok(())
         }
+
+        fn apply_styles(
+            &self,
+            _project_dir: &Path,
+            _styles: StylesChoice,
+            _package_manager: PackageManager,
+        ) -> Result<()> {
+            self.calls.borrow_mut().push("apply_styles".to_string());
+            Ok(())
+        }
     }
 
     #[derive(Default)]
@@ -243,7 +282,10 @@ mod tests {
             exists: false,
             cwd: PathBuf::from("/tmp"),
         };
-        let ui_selector = FakeUiSelector { ui: UiChoice::None };
+        let ui_selector = FakeUiSelector {
+            ui: UiChoice::None,
+            styles: StylesChoice::None,
+        };
         let seeder = FakeSeeder::default();
         let reporter = FakeReporter;
         let use_case = NewProjectUseCase::new(&env, &ui_selector, &seeder, &reporter);
@@ -252,6 +294,7 @@ mod tests {
             .execute(NewProjectRequest {
                 project_name: "demo-app".to_string(),
                 ui: None,
+                styles: None,
                 package_manager: Some(PackageManager::Npm),
                 skip_install: true,
                 yes: true,

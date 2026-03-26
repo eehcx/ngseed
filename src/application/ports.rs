@@ -6,9 +6,11 @@ use anyhow::Result;
 use crate::domain::project::PackageManager;
 use crate::domain::project::ResolvedOptions;
 use crate::domain::project::UiChoice;
+use crate::domain::styles_choice::StylesChoice;
 
 pub trait UiSelector {
     fn select_ui(&self) -> Result<UiChoice>;
+    fn select_styles(&self) -> Result<StylesChoice>;
     fn select_package_manager(&self) -> Result<PackageManager>;
 }
 
@@ -25,6 +27,12 @@ pub trait Seeder {
         &self,
         project_dir: &Path,
         ui: UiChoice,
+        package_manager: PackageManager,
+    ) -> Result<()>;
+    fn apply_styles(
+        &self,
+        project_dir: &Path,
+        styles: StylesChoice,
         package_manager: PackageManager,
     ) -> Result<()>;
 }

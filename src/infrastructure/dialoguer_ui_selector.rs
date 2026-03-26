@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
-use dialoguer::{Select, theme::ColorfulTheme};
+use dialoguer::{theme::ColorfulTheme, Select};
 
 use crate::application::ports::UiSelector;
 use crate::domain::project::PackageManager;
 use crate::domain::project::UiChoice;
+use crate::domain::styles_choice::StylesChoice;
 
 pub struct DialoguerUiSelector;
 
@@ -25,6 +26,24 @@ impl UiSelector for DialoguerUiSelector {
         };
 
         Ok(ui)
+    }
+
+    fn select_styles(&self) -> Result<StylesChoice> {
+        let choices = ["None", "TailwindCSS"];
+        let selected = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select styles option")
+            .items(&choices)
+            .default(0)
+            .interact()
+            .context("failed to read styles selection")?;
+
+        let styles = match selected {
+            0 => StylesChoice::None,
+            1 => StylesChoice::TailwindCSS,
+            _ => StylesChoice::None,
+        };
+
+        Ok(styles)
     }
 
     fn select_package_manager(&self) -> Result<PackageManager> {
