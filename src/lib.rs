@@ -18,7 +18,7 @@ pub fn run() -> Result<()> {
         interfaces::cli::AppCommand::New(request) => {
             let env = SystemEnvironment;
             let ui_selector = DialoguerUiSelector;
-            let seeder = SystemSeeder::default();
+            let seeder = SystemSeeder;
             let reporter = ConsoleProgressReporter::default();
 
             let use_case = NewProjectUseCase::new(&env, &ui_selector, &seeder, &reporter);

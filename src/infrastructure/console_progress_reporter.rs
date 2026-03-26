@@ -41,10 +41,10 @@ impl ProgressReporter for ConsoleProgressReporter {
     }
 
     fn stage_ok(&self, stage: &str, message: &str) {
-        if let Ok(mut current) = self.spinner.lock() {
-            if let Some(spinner) = current.take() {
-                spinner.finish_and_clear();
-            }
+        if let Ok(mut current) = self.spinner.lock()
+            && let Some(spinner) = current.take()
+        {
+            spinner.finish_and_clear();
         }
 
         println!(
@@ -56,10 +56,10 @@ impl ProgressReporter for ConsoleProgressReporter {
     }
 
     fn stage_error(&self, stage: &str, message: &str) {
-        if let Ok(mut current) = self.spinner.lock() {
-            if let Some(spinner) = current.take() {
-                spinner.finish_and_clear();
-            }
+        if let Ok(mut current) = self.spinner.lock()
+            && let Some(spinner) = current.take()
+        {
+            spinner.finish_and_clear();
         }
 
         eprintln!(

@@ -41,7 +41,8 @@ impl<'a> NewProjectUseCase<'a> {
         self.reporter
             .stage_start("preflight", "checking required tools");
         if let Err(err) = self.seeder.ensure_required_tools(options.package_manager) {
-            self.reporter.stage_error("preflight", "required tool check failed");
+            self.reporter
+                .stage_error("preflight", "required tool check failed");
             return Err(err);
         }
         self.reporter
@@ -84,10 +85,11 @@ impl<'a> NewProjectUseCase<'a> {
 
         self.reporter
             .stage_start("ui setup", "applying selected UI integration");
-        if let Err(err) = self
-            .seeder
-            .apply_ui_integration(&absolute_project_dir, options.ui, options.package_manager)
-        {
+        if let Err(err) = self.seeder.apply_ui_integration(
+            &absolute_project_dir,
+            options.ui,
+            options.package_manager,
+        ) {
             self.reporter
                 .stage_error("ui setup", "UI integration failed");
             return Err(err);
@@ -95,11 +97,8 @@ impl<'a> NewProjectUseCase<'a> {
         self.reporter
             .stage_ok("ui setup", "UI integration completed");
 
-        self.reporter.summary(
-            &request.project_name,
-            &absolute_project_dir,
-            options,
-        );
+        self.reporter
+            .summary(&request.project_name, &absolute_project_dir, options);
 
         Ok(())
     }
@@ -197,7 +196,11 @@ mod tests {
             Ok(())
         }
 
-        fn scaffold_angular_project(&self, _project_name: &str, _options: ResolvedOptions) -> Result<()> {
+        fn scaffold_angular_project(
+            &self,
+            _project_name: &str,
+            _options: ResolvedOptions,
+        ) -> Result<()> {
             self.calls
                 .borrow_mut()
                 .push("scaffold_angular_project".to_string());

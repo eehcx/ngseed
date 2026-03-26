@@ -73,7 +73,10 @@ impl Seeder for SystemSeeder {
     }
 }
 
-fn ensure_required_tools(runner: &mut dyn CommandRunner, package_manager: PackageManager) -> Result<()> {
+fn ensure_required_tools(
+    runner: &mut dyn CommandRunner,
+    package_manager: PackageManager,
+) -> Result<()> {
     for tool in ["node", "ng", package_manager_cli_name(package_manager)] {
         let args = vec!["--version".to_string()];
         runner
@@ -467,8 +470,7 @@ mod tests {
 
     #[test]
     fn package_manager_install_command_matches_manager() {
-        let (program, args) =
-            package_manager_install_command(PackageManager::Bun, &["primeng"]);
+        let (program, args) = package_manager_install_command(PackageManager::Bun, &["primeng"]);
         assert_eq!(program, "bun");
         assert_eq!(args, vec!["add".to_string(), "primeng".to_string()]);
     }
