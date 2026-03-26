@@ -15,11 +15,18 @@ pub enum PackageManager {
     Bun,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchitectureProfile {
+    Clean,
+    Cdp,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ResolvedOptions {
     pub ui: UiChoice,
     pub styles: StylesChoice,
     pub package_manager: PackageManager,
+    pub architecture: ArchitectureProfile,
     pub skip_install: bool,
 }
 
@@ -29,6 +36,7 @@ pub struct NewProjectRequest {
     pub ui: Option<UiChoice>,
     pub styles: Option<StylesChoice>,
     pub package_manager: Option<PackageManager>,
+    pub architecture: Option<ArchitectureProfile>,
     pub skip_install: bool,
     pub yes: bool,
 }

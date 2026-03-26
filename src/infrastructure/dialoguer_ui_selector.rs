@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 
 use crate::application::ports::UiSelector;
+use crate::domain::project::ArchitectureProfile;
 use crate::domain::project::PackageManager;
 use crate::domain::project::UiChoice;
 use crate::domain::styles_choice::StylesChoice;
@@ -64,5 +65,23 @@ impl UiSelector for DialoguerUiSelector {
         };
 
         Ok(manager)
+    }
+
+    fn select_architecture(&self) -> Result<ArchitectureProfile> {
+        let choices = ["clean", "cdp"];
+        let selected = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select architecture profile")
+            .items(&choices)
+            .default(0)
+            .interact()
+            .context("failed to read architecture selection")?;
+
+        let profile = match selected {
+            0 => ArchitectureProfile::Clean,
+            1 => ArchitectureProfile::Cdp,
+            _ => ArchitectureProfile::Clean,
+        };
+
+        Ok(profile)
     }
 }

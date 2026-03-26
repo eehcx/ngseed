@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::domain::project::ArchitectureProfile;
 use crate::domain::project::NewProjectRequest;
 use crate::domain::project::PackageManager;
 use crate::domain::project::UiChoice;
@@ -11,8 +12,8 @@ use crate::domain::styles_choice::StylesChoice;
     name = "ngseed",
     version,
     about = "Initialize Angular projects with a clean architecture baseline",
-    long_about = "A modern CLI to scaffold Angular projects, apply clean architecture structure, and integrate a UI stack.",
-    after_help = "Examples:\n  ngseed new my-app\n  ngseed new my-app --yes --ui material --package-manager pnpm\n  ngseed new my-app --skip-install --ui none",
+    long_about = "A modern CLI to scaffold Angular projects, apply architecture templates, and integrate a UI stack.",
+    after_help = "Examples:\n  ngseed new my-app --architecture clean\n  ngseed new my-app --architecture cdp --ui none\n  ngseed new my-app --yes --ui material --package-manager pnpm",
     arg_required_else_help = true
 )]
 struct Cli {
@@ -37,6 +38,9 @@ struct NewCommand {
 
     #[arg(long, value_enum)]
     package_manager: Option<CliPackageManager>,
+
+    #[arg(long, value_enum)]
+    architecture: Option<CliArchitectureProfile>,
 
     #[arg(long)]
     skip_install: bool,
@@ -66,6 +70,12 @@ enum CliPackageManager {
     Bun,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+enum CliArchitectureProfile {
+    Clean,
+    Cdp,
+}
+
 pub enum AppCommand {
     New(NewProjectRequest),
 }
@@ -90,6 +100,7 @@ fn map_cli_to_command(cli: Cli) -> AppCommand {
             ui: cmd.ui.map(Into::into),
             styles: cmd.styles.map(Into::into),
             package_manager: cmd.package_manager.map(Into::into),
+            architecture: cmd.architecture.map(Into::into),
             skip_install: cmd.skip_install,
             yes: cmd.yes,
         }),
@@ -126,6 +137,15 @@ impl From<CliPackageManager> for PackageManager {
     }
 }
 
+impl From<CliArchitectureProfile> for ArchitectureProfile {
+    fn from(value: CliArchitectureProfile) -> Self {
+        match value {
+            CliArchitectureProfile::Clean => ArchitectureProfile::Clean,
+            CliArchitectureProfile::Cdp => ArchitectureProfile::Cdp,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,6 +162,8 @@ mod tests {
             "primeng",
             "--package-manager",
             "pnpm",
+            "--architecture",
+            "cdp",
         ])
         .unwrap();
 
@@ -149,6 +171,7 @@ mod tests {
         assert_eq!(request.project_name, "demo");
         assert_eq!(request.ui, Some(UiChoice::Primeng));
         assert_eq!(request.package_manager, Some(PackageManager::Pnpm));
+        assert_eq!(request.architecture, Some(ArchitectureProfile::Cdp));
         assert!(request.skip_install);
         assert!(request.yes);
     }
