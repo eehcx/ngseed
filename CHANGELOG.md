@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/eehcx/ngseed/compare/ngseed-v0.1.1...ngseed-v0.1.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* **ci:** support release-please component tags in version check ([7d5070c](https://github.com/eehcx/ngseed/commit/7d5070cfb7ae587f2703e706bc2612058c9f6468))
+
 ## [0.1.1](https://github.com/eehcx/ngseed/compare/ngseed-v0.1.0...ngseed-v0.1.1) (2026-03-26)
 
 
