@@ -11,7 +11,18 @@ use infrastructure::dialoguer_ui_selector::DialoguerUiSelector;
 use infrastructure::system_environment::SystemEnvironment;
 use infrastructure::system_seeder::SystemSeeder;
 
+const BANNER: &str = r#"
+        _   __      _____               __
+       / | / /___ _/ ___/___  ___  ____/ /
+      /  |/ / __ `/\__ \/ _ \/ _ \/ __  /
+     / /|  / /_/ /___/ /  __/  __/ /_/ /
+    /_/ |_/\__, //____/\___/\___/\__,_/
+          /____/
+"#;
+
 pub fn run() -> Result<()> {
+    println!("{}", BANNER);
+
     let command = interfaces::cli::parse()?;
 
     match command {
