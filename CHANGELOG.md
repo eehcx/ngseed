@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/eehcx/ngseed/compare/ngseed-v0.2.1...ngseed-v0.2.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* **ci:** resolve template path for installed binary ([#10](https://github.com/eehcx/ngseed/issues/10)) ([5c71473](https://github.com/eehcx/ngseed/commit/5c714730cc4ccb30915f3b20cc328a417d789b8b))
+
 ## [0.2.1](https://github.com/eehcx/ngseed/compare/ngseed-v0.2.0...ngseed-v0.2.1) (2026-03-27)
 
 
