@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/eehcx/ngseed/compare/ngseed-v0.2.0...ngseed-v0.2.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* create tailwind.config.js and postcss.config.js manually instead of running npx tailwindcss init ([#8](https://github.com/eehcx/ngseed/issues/8)) ([078eec4](https://github.com/eehcx/ngseed/commit/078eec49f31be22187d4b99f89ab78c172105e3d))
+
 ## [0.2.0](https://github.com/eehcx/ngseed/compare/ngseed-v0.1.2...ngseed-v0.2.0) (2026-03-27)
 
 
