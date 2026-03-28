@@ -44,7 +44,7 @@ impl<'a> NewProjectUseCase<'a> {
         )?;
 
         if !request.yes && !self.env.is_ci() && self.env.is_interactive_terminal() {
-            self.reporter.show_banner();
+            //self.reporter.show_banner();
         }
 
         self.reporter
@@ -304,7 +304,7 @@ mod tests {
     struct FakeReporter;
 
     impl ProgressReporter for FakeReporter {
-        fn show_banner(&self) {}
+        //fn show_banner(&self) {}
         fn stage_start(&self, _stage: &str, _message: &str) {}
         fn stage_ok(&self, _stage: &str, _message: &str) {}
         fn stage_error(&self, _stage: &str, _message: &str) {}

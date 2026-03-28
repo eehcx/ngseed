@@ -21,7 +21,7 @@ impl Default for ConsoleProgressReporter {
 }
 
 impl ProgressReporter for ConsoleProgressReporter {
-    fn show_banner(&self) {
+    /*fn show_banner(&self) {
         println!(
             "{}",
             style(" _   _  ____ ____  _____ _____ ____  ").cyan().bold()
@@ -52,7 +52,7 @@ impl ProgressReporter for ConsoleProgressReporter {
         );
         println!("{}", style("Angular project bootstrap CLI").dim());
         println!();
-    }
+    }*/
 
     fn stage_start(&self, stage: &str, message: &str) {
         let spinner = ProgressBar::new_spinner();

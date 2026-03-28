@@ -46,7 +46,7 @@ pub trait Seeder {
 }
 
 pub trait ProgressReporter {
-    fn show_banner(&self);
+    //fn show_banner(&self);
     fn stage_start(&self, stage: &str, message: &str);
     fn stage_ok(&self, stage: &str, message: &str);
     fn stage_error(&self, stage: &str, message: &str);
