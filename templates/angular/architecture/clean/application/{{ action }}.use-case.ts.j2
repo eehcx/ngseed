@@ -1,0 +1,31 @@
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { {{ name }}RepositoryPort } from '../domain/{{ name_kebab }}-repository.port';
+import { {{ name }} } from '../domain/{{ name_kebab }}.entity';
+
+@Injectable({ providedIn: 'root' })
+export class {{ action }}UseCase {
+  readonly #repository = inject({{ name }}RepositoryPort);
+
+  execute(
+    {% if action starts with 'Get' %}
+    id?: string
+    {% elif action starts with 'Create' or action starts with 'Update' %}
+    entity: {{ name }}
+    {% elif action starts with 'Delete' %}
+    id: string
+    {% endif %}
+  ): Observable<{{ name }}{% if action starts with 'GetAll' %}[]{% elif action starts with 'Delete' %}void{% endif %}> {
+    {% if action starts with 'GetAll' %}
+    return this.#repository.getAll();
+    {% elif action starts with 'GetById' %}
+    return this.#repository.getById(id!);
+    {% elif action starts with 'Create' %}
+    return this.#repository.create(entity);
+    {% elif action starts with 'Update' %}
+    return this.#repository.update(entity.id, entity);
+    {% elif action starts with 'Delete' %}
+    return this.#repository.delete(id);
+    {% endif %}
+  }
+}

@@ -1,0 +1,23 @@
+export class {{ name }} {
+  constructor(
+    {% for field in fields %}
+    public readonly {{ field.name }}: {{ field.type }}{% if not field.required %} | null{% endif %},
+    {% endfor %}
+  ) {}
+
+  static fromJson(json: Record<string, unknown>): {{ name }} {
+    return new {{ name }}(
+      {% for field in fields %}
+      json['{{ field.name }}'] as {{ field.type }}{% if not field.required %} ?? null{% endif %},
+      {% endfor %}
+    );
+  }
+
+  toJson(): Record<string, unknown> {
+    return {
+      {% for field in fields %}
+      {{ field.name }}: this.{{ field.name }},
+      {% endfor %}
+    };
+  }
+}

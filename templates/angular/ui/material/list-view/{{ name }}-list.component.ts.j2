@@ -1,0 +1,46 @@
+import { Component, inject, OnInit } from '@angular/core';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { RouterModule } from '@angular/router';
+import { {{ name }}Facade } from '../../_shared/facade/{{ name_kebab }}.facade';
+
+@Component({
+  selector: 'app-{{ name_kebab }}-list',
+  standalone: true,
+  imports: [
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    RouterModule,
+  ],
+  templateUrl: './{{ name_kebab }}-list.component.html',
+})
+export class {{ name }}ListComponent implements OnInit {
+  readonly #facade = inject({{ name }}Facade);
+  readonly #snackBar = inject(MatSnackBar);
+
+  readonly items = this.#facade.items;
+  readonly loading = this.#facade.loading;
+  readonly error = this.#facade.error;
+
+  readonly displayedColumns: string[] = [
+    {% for field in fields %}
+    '{{ field.name }}',
+    {% endfor %}
+    'actions',
+  ];
+
+  ngOnInit(): void {
+    this.#facade.loadAll();
+  }
+
+  onDelete(id: string): void {
+    this.#facade.delete(id);
+    this.#snackBar.open('Deleted successfully', 'Close', { duration: 3000 });
+  }
+}

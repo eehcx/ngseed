@@ -1,0 +1,10 @@
+import { Observable } from 'rxjs';
+import { {{ name }} } from './{{ name_kebab }}.entity';
+
+export abstract class {{ name }}RepositoryPort {
+  abstract getAll(): Observable<{{ name }}[]>;
+  abstract getById(id: string): Observable<{{ name }}>;
+  abstract create(entity: {{ name }}): Observable<{{ name }}>;
+  abstract update(id: string, entity: {{ name }}): Observable<{{ name }}>;
+  abstract delete(id: string): Observable<void>;
+}
